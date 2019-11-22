@@ -1,0 +1,27 @@
+# command line: video_demo.py --video 8
+
+config: graph/config/inference.yaml
+detbatch: 1
+device:
+- 0
+ignore_weights: []
+model: graph.gcn_utils.gcn_model.Model
+model_args:
+    edge_importance_weighting: true
+    graph_args:
+        layout: PoseTrack
+        strategy: spatial
+    in_channels: 2
+    num_class: 128
+nThreads: 6
+outputpath: examples/res/
+print_log: true
+profile: false
+save_log: true
+save_video: false
+sp: false
+use_gpu: true
+video: '8'
+vis: false
+weights: ./weights/GCN/epoch210_model.pt
+work_dir: ./work_dir/tmp

@@ -1,0 +1,21 @@
+
+
+- Videos
+python3 video_demo.py --video ${path to video} --outdir examples/res --save_video --vis
+
+
+- Images
+python3 demo.py --indir ${img_directory} --outdir examples/res
+
+
+- file_list
+python3 demo.py --list examples/list-coco-demo.txt --indir ${img_directory} --outdir examples/res --save_img
+
+
+
+
+
+
+
+- Structure -
+ combining existing method { YOLOv3 + Pyranet } and with multi-processing from python
