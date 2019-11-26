@@ -689,6 +689,7 @@ class DataWriter:
             conf = car['conf']
             
             
+            # here alpha.
             tracker = self.car_trajectory_dict[track_id]
             history = tracker[MOVE_HISTORY]
             moving_active = np.sum(history[LAST_MOVED_MOVE_COUNT:])
