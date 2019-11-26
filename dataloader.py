@@ -690,6 +690,8 @@ class DataWriter:
             
             
             # here alpha.
+            # This is ganzi
+            
             tracker = self.car_trajectory_dict[track_id]
             history = tracker[MOVE_HISTORY]
             moving_active = np.sum(history[LAST_MOVED_MOVE_COUNT:])
