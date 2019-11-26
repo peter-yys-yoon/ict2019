@@ -131,6 +131,12 @@ parser.add_argument('--video', dest='video',help='video-name', default="/home/pe
 parser.add_argument('--webcam', dest='webcam', type=str,
                     help='webcam number', default='0')
 parser.add_argument('--save_video', dest='save_video',help='whether to save rendered video', default=True, action='store_true')
+
+parser.add_argument('--fight', dest='fight', default=False, action='store_true')
+parser.add_argument('--gta', dest='gta', default=False, action='store_true')
+parser.add_argument('--park', dest='park', default=False, action='store_true')
+
+
 parser.add_argument('--vis_fast', dest='vis_fast', help='use fast rendering', action='store_true', default=True)
 opt = parser.parse_args()
 

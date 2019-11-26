@@ -1,4 +1,13 @@
 from opt import opt
+args = opt
+# assert args.fight or args.gta or args.park , "select flag"
+
+# if args.fight:
+#     from WriterFight import DataWriter
+# elif args.gta:
+#     from WriterGTA import DataWriter
+# else:
+#     from WriterPark import DataWriter
 
 import ntpath
 import os
@@ -10,14 +19,19 @@ from tqdm import tqdm
 from SPPE.src.main_fast_inference import *
 from dataloader import VideoLoader, DetectionLoader, DetectionProcessor, Mscoco, DataWriter
 from fn import getTime
-from opt import opt
+
 from pPose_nms import write_json
 
-args = opt
+
 args.dataset = 'coco'
 if not args.sp:
     torch.multiprocessing.set_start_method('forkserver', force=True)
     torch.multiprocessing.set_sharing_strategy('file_system')
+
+
+
+
+    
 
 if __name__ == "__main__":
     videofile = args.video
@@ -55,7 +69,7 @@ if __name__ == "__main__":
     elif videofile == '12': # GTA4
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s2_student1.mp4'
         
-        
+    print('Processing ' , videofile)
         
 
     # Load input video

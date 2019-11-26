@@ -104,6 +104,23 @@ FRAME_DIST_LOC = (990, 50)
 FRAME_STATUS_LOC = (410, 50)
 
 
+ALPHA_OVERLAY = 0.2
+
+
+
+def overlayfunc(img, center, rad ):
+
+    overlaied = img.copy()
+    for i in range(7):
+        mask = np.zeros(img.shape, dtype=np.uint8)
+        cv2.circle(mask,center, int(rad*2) - i*10, (255,255,255),-1)
+        mask = np.sum(mask,axis=2).astype(np.bool)
+        mask = np.logical_not(mask)
+        imgk = img.copy()
+        imgk[mask] = [255,255,255]
+        overlaied = cv2.addWeighted(imgk, ALPHA_OVERLAY, overlaied, 1-ALPHA_OVERLAY, 0)
+        
+
 def get_nonzero_std(_ss):  # tvc
     """
     np.sum(-1) # sum all elements in last axis
