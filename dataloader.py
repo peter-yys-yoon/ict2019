@@ -27,9 +27,9 @@ from queue import Queue, LifoQueue
 from fn import vis_frame_tmp as vis_frame
 from fn import getTime
 
-enlarge_scale = 0.3
+from fns import VehicleClass
 
-YOLO_DETECTION_THRES = 0.35
+
 
 
 class VideoLoader:
@@ -350,12 +350,14 @@ class DataWriter:
         self.save_video = save_video
         self.stopped = False
         self.final_result = []
-        self.track_dict = {}
-        self.car_trajectory_dict = {}
+        
+        self.vehicle = VehicleClass()
+        
+        
         self.person_trajectory_dict = {}
         self.person_list_list = []
         self.car_list_list = []
-        self.car_next_id = 0
+        
         self.person_next_id = 0
         # initialize the queue used to store frames read from
         # the video file
@@ -371,55 +373,14 @@ class DataWriter:
         t.start()
         return self
 
-    def car_tracking(self, car_np, img_id):
-        """
-        Assign track_id to detected object.
-        car_np: car objects in numpy form.
-        """
-
-        new_car_bboxs = car_np[:, 1:5].astype(np.uint32)  # b/  x y w h c / cls_conf, cls_idx
-        new_car_score = car_np[:, 5]
-        cls_conf = car_np[:, 6]
-        car_dest_list = []
-
-        if img_id > 1:  # First frame does not have previous frame
-            car_bbox_list_prev_frame = self.car_list_list[img_id - 1].copy()
-        else:
-            car_bbox_list_prev_frame = []
-
-        # print('car bbox list prev frame ', len(car_bbox_list_prev_frame))
-        for c, score, conf in zip(new_car_bboxs, new_car_score, cls_conf):
-            car_bbox_det = c
-            bbox_in_xywh = enlarge_bbox(car_bbox_det, enlarge_scale)
-            bbox_det = x1y1x2y2_to_xywh(bbox_in_xywh)
-
-            if img_id == 0:  # First frame, all ids are assigned automatically
-                car_track_id = self.car_next_id
-                self.car_next_id += 1
-            else:
-                car_track_id, match_index = get_track_id_SpatialConsistency(bbox_det,
-                                                                            car_bbox_list_prev_frame)
-                # print(car_track_id, match_index)
-                if car_track_id != -1:  # if candidate from prev frame matched, prevent it from matching another
-                    del car_bbox_list_prev_frame[match_index]
-
-            bbox_det_dict = {"img_id": img_id,
-                             "track_id": car_track_id,
-                             "bbox": bbox_det,
-                             "score": score,
-                             "conf": conf}
-            car_dest_list.append(bbox_det_dict)
-
-        for car_bbox_det_dict in car_dest_list:  # detections for current frame
-            if car_bbox_det_dict["track_id"] == -1:  # this id means matching not found yet
-                car_bbox_det_dict["track_id"] = self.car_next_id
-                self.car_next_id += 1
-
-        return car_dest_list
+    
 
     def person_tracking(self, boxes, scores, hm_data, pt1, pt2, img_id):
 
         person_list = []
+        
+        if boxes is None:
+            return person_list
 
         if opt.matching:  # TODO Check the difference,
             preds = getMultiPeakPrediction(
@@ -523,41 +484,7 @@ class DataWriter:
 
             self.person_trajectory_dict[track_id] = person_dict
 
-    def car_trajectory(self, det_list):
-        for det in det_list:
-            track_id = det['track_id']
-            xyxy = xywh_to_x1y1x2y2(det['bbox'])
 
-            if track_id in self.car_trajectory_dict.keys():
-                track_obj = self.car_trajectory_dict[track_id]
-                tracklet = track_obj[CAR_TRACKLET]
-                history = track_obj[MOVE_HISTORY]
-                tracklet.append(xyxy)
-                
-                if len(tracklet) > THRESHOLD_CAR_TRACKLET_SIZE: # 25
-                    tracklet = tracklet[1:]
-                    
-                if len(tracklet) > 1:
-                    dist, diag  = avg_dist(tracklet)
-                    th = diag * 0.02   
-                
-                    if dist > th : # moved
-                        history.append(1)
-                    else: 
-                        history.append(0)
-
-                if len(history) > THRESHOLD_CAR_HISTORY_SIZE: # 120
-                    history = history[1:]
-
-                track_obj[CAR_TRACKLET] = tracklet
-                track_obj[MOVE_HISTORY] = history 
-
-            else:
-                track_obj = {CAR_TRACKLET: [xyxy],
-                             MOVE_HISTORY: [0],
-                             GTA_HISTORY: [0]}
-
-            self.car_trajectory_dict[track_id] = track_obj
 
     def robeery_detection(self):
         pass
@@ -598,46 +525,34 @@ class DataWriter:
 
             if not self.Q.empty():
                 start_time = getTime()
-
-                (boxes, scores, hm_data, pt1, pt2, orig_img, img_id, CAR) = self.Q.get()
-                # print(img_id)
+                (boxes, scores, hm_data, pt1, pt2, orig_img, img_id, car_np) = self.Q.get()
                 orig_img = np.array(orig_img, dtype=np.uint8)
                 img = orig_img
 
                 # text_filled2(img,(5,200),str(img_id),LIGHT_GREEN,2,2)
 
-                """
-                PERSON
-                """
-                if boxes is None:  # No person detection
-                    person_list = []
-                    pass
-                else:
-                    person_list = self.person_tracking(boxes, scores, hm_data, pt1, pt2, img_id)
-                    # update frame
-                    vis_frame(img, person_list)
+                """ PERSON """
+                person_list = self.person_tracking(boxes, scores, hm_data, pt1, pt2, img_id)
+                vis_frame(img, person_list)
 
-                """
-                Car
-                """
-
-                if CAR is not None:
-                    car_np = CAR
-                    car_dest_list = self.car_tracking(car_np, img_id)
-                else:
-                    car_dest_list = []
-
-                self.car_list_list.append(car_dest_list)
+                """ Car """
+                car_dest_list = self.vehicle.car_tracking(car_np, img_id)
+                self.vehicle.car_trajectory(car_dest_list)
+                
+            
                 self.person_list_list.append(person_list)
 
-                self.car_trajectory(car_dest_list)
-                self.person_tracjectory(person_list)
 
+                self.person_tracjectory(person_list)
+                
+
+                
+                self.vehicle.parking_detection(car_dest_list, img, img_id)
                 # FOR GIST2019
-                if img_id != 0:
-                    # self.fight_detection(person_list)
-                    self.parking_detection(car_dest_list, img, img_id)
-                    # self.car_person_detection(car_dest_list, bbox_dets_list, img)
+                if opt.gta:
+                    pass
+                # self.fight_detection(person_list)                    
+                # self.car_person_detection(car_dest_list, bbox_dets_list, img)
                     
 
                 # FOR NEXPA
@@ -679,90 +594,7 @@ class DataWriter:
                     overlayed = cv2.addWeighted(cropped, 0.9, filter, 0.1, 0)
                     img[y:y + h, x:x + w, :] = overlayed[:, :, :]
 
-    def parking_detection(self, car_dest_list, img, img_id):
-
-        imgW, imgH = img.shape[1], img.shape[0]
-        for car in car_dest_list:
-            x, y, w, h = car['bbox']
-            track_id = car['track_id']
-            score = car['score']
-            conf = car['conf']
-            
-            
-            # here alpha.
-            # This is ganzi
-            
-            tracker = self.car_trajectory_dict[track_id]
-            history = tracker[MOVE_HISTORY]
-            moving_active = np.sum(history[LAST_MOVED_MOVE_COUNT:])
-            moving_stop = np.sum(history[LAST_MOVED_STOP_COUNT:])
-            moving_parking = np.sum(history[LAST_MOVED_PARKING_COUNT:])
-
-            cv2.rectangle(img, (x, y), (x + w, y + h), COLOR_INACTIVE, 1)
-            text_filled(img, (x, y), f'{track_id} Inactive', COLOR_INACTIVE)
-            
-            if moving_active: # moving now
-                cv2.rectangle(img, (x, y), (x + w, y + h), COLOR_MOVING, 1)
-                text_filled(img, (x, y), f'CAR {track_id} Active', COLOR_MOVING)
-            else: # not moving.
-
-                if moving_stop : # moved last 5 sec
-                    cv2.rectangle(img, (x, y), (x + w, y + h), YELLOW, 1)
-                    text_filled(img, (x, y), f'CAR {track_id} STOP', YELLOW)
-
-                    cropped = img[y:y + h, x:x + w, :]
-                    filter = np.zeros(cropped.shape, dtype=img.dtype)
-                    # print(cropped.shape, filter.shape)
-                    filter[:, :, :] = YELLOW
-                    overlayed = cv2.addWeighted(cropped, 0.8, filter, 0.2, 0)
-                    img[y:y + h, x:x + w, :] = overlayed[:, :, :]
-                    
-                    
-                    text_filled2(img, (10, 80), 'Red zone Warning', YELLOW, 2, 2)
-                    if img_id % BLINK_CAR_CAUTION_INTERVAL == 0:
-                        cv2.rectangle(img, (BKINK_CAR_CAUTION_BBOX_SIZE, BKINK_CAR_CAUTION_BBOX_SIZE), (imgW - BKINK_CAR_CAUTION_BBOX_SIZE, imgH - BKINK_CAR_CAUTION_BBOX_SIZE), YELLOW, BKINK_CAR_CAUTION_BBOX_SIZE)
-                        
-
-
-                elif moving_parking:
-                    
-                    cv2.rectangle(img, (x, y), (x + w, y + h), RED, 1)
-                    text_filled(img, (x, y), f'CAR {track_id} STOP', RED)
-
-                    cropped = img[y:y + h, x:x + w, :]
-                    filter = np.zeros(cropped.shape, dtype=img.dtype)
-                    # print(cropped.shape, filter.shape)
-                    filter[:, :, :] = RED
-                    overlayed = cv2.addWeighted(cropped, 0.8, filter, 0.2, 0)
-                    img[y:y + h, x:x + w, :] = overlayed[:, :, :]
-
-                    text_filled2(img, (10, 80), 'Red zone Parking!!', RED, 2, 2)
-                    if img_id & BLINK_CAR_WARNING_INTERVAL == 0:
-                        cv2.rectangle(img, (BKINK_CAR_WARNING_BBOX_SIZE, BKINK_CAR_WARNING_BBOX_SIZE), (imgW - BKINK_CAR_WARNING_BBOX_SIZE, imgH - BKINK_CAR_WARNING_BBOX_SIZE), RED, BKINK_CAR_WARNING_BBOX_SIZE)
-                        
-                        
-                
-                
-                    
-
-                    # if track_id == 13:
-                    #     cv2.rectangle(img, (x, y), (x + w, y + h), RED, 1)
-                    #     text_filled(img, (x, y), f'{track_id} Parking', RED)
-                    #     cropped = img[y:y + h, x:x + w, :]
-                    #     filter = np.zeros(cropped.shape, dtype=img.dtype)
-                    #     # print(cropped.shape, filter.shape)
-                    #     filter[:, :, 2] = 255
-                    #     # print(overlay.shape)
-                    #     # cv2.rectangle(overlay, (0, 0), (w, h), COLOR_RED, -1)
-                    #     overlayed = cv2.addWeighted(cropped, 0.8, filter, 0.2, 0)
-                    #     img[y:y + h, x:x + w, :] = overlayed[:, :, :]
-
-                    #     cv2.rectangle(img, (0, 0), (imgW - 15, imgH - 15), RED, 10)
-                    #     text_filled2(img, (10, 80), 'Red zone PARKING!!', RED, 2, 2)
-
-                    # else:
-                    #     text_filled(img, (x, y), f'{track_id} Inactive', COLOR_INACTIVE)
-                    #     cv2.rectangle(img, (x, y), (x + w, y + h), COLOR_INACTIVE, 1)
+   
 
     def running(self):
         # indicate that the thread is still running

@@ -106,19 +106,28 @@ FRAME_STATUS_LOC = (410, 50)
 
 ALPHA_OVERLAY = 0.2
 
+enlarge_scale = 0.3
+
+YOLO_DETECTION_THRES = 0.35
 
 
-def overlayfunc(img, center, rad ):
 
-    overlaied = img.copy()
+def overlayfunc( img, center, rad ):
+
+    
+    original = img.copy()
+    
     for i in range(7):
-        mask = np.zeros(img.shape, dtype=np.uint8)
-        cv2.circle(mask,center, int(rad*2) - i*10, (255,255,255),-1)
+        mask = np.zeros(original.shape, dtype=np.uint8)
+        cv2.circle(mask, center, int(rad) - i*15, (255,255,255),-1)
         mask = np.sum(mask,axis=2).astype(np.bool)
         mask = np.logical_not(mask)
-        imgk = img.copy()
+        imgk = original.copy()
         imgk[mask] = [255,255,255]
-        overlaied = cv2.addWeighted(imgk, ALPHA_OVERLAY, overlaied, 1-ALPHA_OVERLAY, 0)
+        cv2.addWeighted(imgk, ALPHA_OVERLAY, img, 1-ALPHA_OVERLAY, 0,img)
+        
+    
+    
         
 
 def get_nonzero_std(_ss):  # tvc
