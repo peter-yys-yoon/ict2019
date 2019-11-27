@@ -14,6 +14,7 @@ class VehicleClass:
         """
         
         if car_np is None:
+            self.car_list_list.append([])
             return []
 
         new_car_bboxs = car_np[:, 1:5].astype(np.uint32)  # b/  x y w h c / cls_conf, cls_idx

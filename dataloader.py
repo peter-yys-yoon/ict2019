@@ -12,11 +12,11 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torch.autograd import Variable
 
-from SPPE.src.utils.eval import getPrediction, getMultiPeakPrediction
+
 from SPPE.src.utils.img import load_image, cropBox, im_to_torch
 from matching import candidate_reselect as matching
 from opt import opt
-from pPose_nms import pose_nms
+
 from yolo.darknet import Darknet
 from yolo.preprocess import prep_image, prep_frame
 from yolo.util import dynamic_write_results
@@ -28,6 +28,7 @@ from fn import vis_frame_tmp as vis_frame
 from fn import getTime
 
 from Vehicle import VehicleClass
+from Person import PersonClass
 
 
 
@@ -234,21 +235,12 @@ class DetectionLoader:
 
             for k in range(len(orig_img)):  # for k-th image detection.
 
-                # print('--------------- car person', carperson.size())
-                # print('--------------- hm dets', hm_dets.size())
-                # print('--------------- class ind', class__person_mask_ind.size())
-                # print()
-                # car_cand = car_dets[car_dets[:, 0] == k]
-
                 if car_box_conf is None:
                     car_k = None
                 else:
                     car_k = car_box_conf[car_box_conf[:, 0] == k].numpy()
                     car_k = car_k[np.where(car_k[:, 5] > 0.2)]  # TODO check here, cls or bg/fg confidence?
                     # car_k = non_max_suppression_fast(car_k, overlapThresh=0.3)  # TODO check here, NMS
-
-                    # print('car k shape' , car_k.shape)
-                    # print(car_k.astype(np.int32))
 
                 if hm_boxes is not None:
                     hm_boxes_k = hm_boxes[hm_dets[:, 0] == k]
@@ -352,15 +344,9 @@ class DataWriter:
         self.final_result = []
         
         self.vehicle = VehicleClass()
+        self.person = PersonClass()
         
-        
-        self.person_trajectory_dict = {}
-        self.person_list_list = []
-        self.car_list_list = []
-        
-        self.person_next_id = 0
-        # initialize the queue used to store frames read from
-        # the video file
+        # initialize the queue used to store frames read from video file
         self.Q = Queue(maxsize=queueSize)
         if opt.save_img:
             if not os.path.exists(opt.outputpath + '/vis'):
@@ -373,147 +359,8 @@ class DataWriter:
         t.start()
         return self
 
-    
-
-    def person_tracking(self, boxes, scores, hm_data, pt1, pt2, img_id):
-
-        person_list = []
-        
-        if boxes is None:
-            return person_list
-
-        if opt.matching:  # TODO Check the difference,
-            preds = getMultiPeakPrediction(
-                hm_data, pt1.numpy(), pt2.numpy(), opt.inputResH, opt.inputResW, opt.outputResH,
-                opt.outputResW)
-            result = matching(boxes, scores.numpy(), preds)
-        else:
-            preds_hm, preds_img, preds_scores = getPrediction(hm_data, pt1, pt2, opt.inputResH,
-                                                              opt.inputResW, opt.outputResH,
-                                                              opt.outputResW)
-            result = pose_nms(boxes, scores, preds_img, preds_scores)  # list type
-            # result = {  'keypoints': ,  'kp_score': , 'proposal_score': ,  'bbox' }
-
-        if img_id > 0:  # First frame does not have previous frame
-            person_list_prev_frame = self.person_list_list[img_id - 1].copy()
-        else:
-            person_list_prev_frame = []
-
-        num_dets = len(result)
-        for det_id in range(num_dets):  # IOU tracking for detections in current frame.
-            # detections for current frame, obtain bbox position and track id
-
-            result_box = result[det_id]
-            kp_score = result_box['kp_score']
-            proposal_score = result_box['proposal_score'].numpy()[0]
-            if proposal_score < 1.3:  # TODO check person proposal threshold
-                continue
-
-            keypoints = result_box['keypoints']  # torch, (17,2)
-            keypoints_pf = np.zeros((15, 2))
-
-            idx_list = [16, 14, 12, 11, 13, 15, 10, 8, 6, 5, 7, 9, 0, 0, 0]
-            for i, idx in enumerate(idx_list):
-                keypoints_pf[i] = keypoints[idx]
-            keypoints_pf[12] = (keypoints[5] + keypoints[6]) / 2  # neck
-
-            # COCO-order {0-nose    1-Leye    2-Reye    3-Lear    4Rear    5-Lsho    6-Rsho    7-Lelb    8-Relb    9-Lwri    10-Rwri    11-Lhip    12-Rhip    13-Lkne    14-Rkne    15-Lank    16-Rank}　
-            # PoseFLow order  #{0-Rank    1-Rkne    2-Rhip    3-Lhip    4-Lkne    5-Lank    6-Rwri    7-Relb    8-Rsho    9-Lsho   10-Lelb    11-Lwri    12-neck  13-nose　14-TopHead}
-            bbox_det = bbox_from_keypoints(keypoints)  # xxyy
-
-            # enlarge bbox by 20% with same center position
-            bbox_in_xywh = enlarge_bbox(bbox_det, enlarge_scale)
-            bbox_det = x1y1x2y2_to_xywh(bbox_in_xywh)
-
-            # # update current frame bbox
-            if img_id == 0:  # First frame, all ids are assigned automatically
-                track_id = self.person_next_id
-                self.person_next_id += 1
-            else:
-                track_id, match_index = get_track_id_SpatialConsistency(bbox_det, person_list_prev_frame)
-                if track_id != -1:  # if candidate from prev frame matched, prevent it from matching another
-                    del person_list_prev_frame[match_index]
-
-            person_det_dict = {"img_id": img_id,
-                               "det_id": det_id,
-                               "track_id": track_id,
-                               "bbox": bbox_det,
-                               "keypoints": keypoints,
-                               'kp_poseflow': keypoints_pf,
-                               'kp_score': kp_score,
-                               'proposal_score': proposal_score}
-
-            person_list.append(person_det_dict)
-
-        num_dets = len(person_list)
-        for det_id in range(num_dets):  # if IOU tracking failed, run pose matching tracking.
-            person_dict = person_list[det_id]
-
-            if person_dict["track_id"] == -1:  # this id means matching not found yet
-                # track_id = bbox_det_dict["track_id"]
-                track_id, match_index = get_track_id_SGCN(person_dict["bbox"], person_list_prev_frame,
-                                                          person_dict["kp_poseflow"])
-
-                if track_id != -1:  # if candidate from prev frame matched, prevent it from matching another
-                    del person_list_prev_frame[match_index]
-                    person_dict["track_id"] = track_id
-                else:
-                    # if still can not find a match from previous frame, then assign a new id
-                    # if track_id == -1 and not bbox_invalid(bbox_det_dict["bbox"]):
-                    person_dict["track_id"] = self.person_next_id
-                    self.person_next_id += 1
-
-        return person_list
-
-    def person_tracjectory(self, det_list):
-        for det in det_list:
-            track_id = det['track_id']
-            keypoint = det['keypoints'].numpy()
-            if track_id in self.person_trajectory_dict.keys():
-                person_dict = self.person_trajectory_dict[track_id]
-                tracklet = person_dict[KEYPOINT_TRACKLET]
-                tracklet.append(keypoint)
-                    
-                if len(tracklet) > 25: 
-                    tracklet = tracklet[1:]
-                    person_dict[KEYPOINT_TRACKLET] = tracklet
-
-            else:
-                person_dict = {KEYPOINT_TRACKLET: [keypoint],
-                               ENERGY_HISTORY: [0]}
-
-            self.person_trajectory_dict[track_id] = person_dict
-
-
-
-    def robeery_detection(self):
-        pass
-
-    def fight_detection(self, det_list):
-        for det in det_list:
-            track_id = det['track_id']
-            person_dict = self.person_trajectory_dict[track_id]
-            tracklet = person_dict[KEYPOINT_TRACKLET]
-            history = person_dict[ENERGY_HISTORY]
-            
-            if len(tracklet) > 1:
-                # print(track_id , tracklet)
-                enegry = get_nonzero_std(tracklet)
-                history.append(enegry)
-            
-            if len(tracklet) > 25:
-                tracklet = tracklet[1:]
-            if len(history) > 30:
-                history = history[1:]
-                # if len()
-
-            car_dict[CAR_TRACKLET] = tracklet
-            car_dict[MOVE_HISTORY] = history 
-            
 
     def update(self):
-        next_id = 0
-
         while True:
             # if the thread indicator variable is set, stop the
             # thread
@@ -529,34 +376,27 @@ class DataWriter:
                 orig_img = np.array(orig_img, dtype=np.uint8)
                 img = orig_img
 
-                # text_filled2(img,(5,200),str(img_id),LIGHT_GREEN,2,2)
-
                 """ PERSON """
-                person_list = self.person_tracking(boxes, scores, hm_data, pt1, pt2, img_id)
+                person_list = self.person.person_tracking(boxes, scores, hm_data, pt1, pt2, img_id)
+                self.person.person_tracjectory(person_list)
                 vis_frame(img, person_list)
 
                 """ Car """
                 car_dest_list = self.vehicle.car_tracking(car_np, img_id)
                 self.vehicle.car_trajectory(car_dest_list)
                 
-            
-                self.person_list_list.append(person_list)
-
-
-                self.person_tracjectory(person_list)
-                
-
-                
-                self.vehicle.parking_detection(car_dest_list, img, img_id)
-                # FOR GIST2019
                 if opt.gta:
-                    pass
+                    self.vehicle.parking_detection(car_dest_list, img, img_id)
+                    
+                elif opt.fight:
+                    self.person.fight_detection(person_list, img_id)
+                    cv2.putText(img, f'Frame: {str(img_id).ljust(4)}', (10,40) , cv2.FONT_HERSHEY_DUPLEX, 2, WHITE, 2)  # point is left-bottom
+                    
                 # self.fight_detection(person_list)                    
                 # self.car_person_detection(car_dest_list, bbox_dets_list, img)
                     
 
-                # FOR NEXPA
-                # self.person_nexpa(bbox_dets_list,img,img_id)
+                
 
                 ckpt_time, det_time = getTime(start_time)
                 if opt.vis:
@@ -592,7 +432,15 @@ class DataWriter:
                     overlayed = cv2.addWeighted(cropped, 0.9, filter, 0.1, 0)
                     img[y:y + h, x:x + w, :] = overlayed[:, :, :]
 
-   
+
+    def write_enery(self):
+        person_dict = self.person.person_trajectory_dict
+        
+        hist = {}
+        for id in person_dict.keys():
+            hist[id] = person_dict[id][ENERY_GRAPH]
+        np.save(os.path.join(opt.outputpath,'history.npy'), hist)
+            
 
     def running(self):
         # indicate that the thread is still running
@@ -644,7 +492,6 @@ def crop_from_dets(img, boxes, inps, pt1, pt2):
 
         try:
             inps[i] = cropBox(tmp_img.clone(), upLeft, bottomRight, opt.inputResH, opt.inputResW)
-            # print(upLeft,bottomRight, inps[i].size())
         except IndexError:
             print(tmp_img.shape)
             print(upLeft)

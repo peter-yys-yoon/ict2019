@@ -23,6 +23,7 @@ MEAN = 'mean'
 GTA_HISTORY = 'gta_history'
 MOVE_HISTORY = 'mv_history'
 CAR_TRACKLET = 'car_tracklet'
+ENERY_GRAPH = 'energy_graph'
 
 FPS = 30
 LAST_MOVED_MOVE_COUNT = -10
