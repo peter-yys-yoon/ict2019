@@ -559,8 +559,6 @@ class DataWriter:
                 # self.person_nexpa(bbox_dets_list,img,img_id)
 
                 ckpt_time, det_time = getTime(start_time)
-                # cv2.putText(img, str(1 / det_time), (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 1)
-                cv2.putText(img, str(img_id), (5, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 1)
                 if opt.vis:
                     cv2.imshow("AlphaPose Demo", img)
                     cv2.waitKey(33)
