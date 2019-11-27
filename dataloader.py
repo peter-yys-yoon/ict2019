@@ -21,13 +21,13 @@ from yolo.darknet import Darknet
 from yolo.preprocess import prep_image, prep_frame
 from yolo.util import dynamic_write_results
 
-from tmp import *
+from utils import *
 from queue import Queue, LifoQueue
 
 from fn import vis_frame_tmp as vis_frame
 from fn import getTime
 
-from fns import VehicleClass
+from Vehicle import VehicleClass
 
 
 

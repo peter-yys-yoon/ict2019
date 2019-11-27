@@ -16,7 +16,7 @@ YELLOW = (0, 255, 255)
 ORANGE = (0, 165, 255)
 PURPLE = (255, 0, 255)
 
-from tmp import text_filled
+from utils import text_filled
 
 numpy_type_map = {
     'float64': torch.DoubleTensor,
