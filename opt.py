@@ -135,6 +135,7 @@ parser.add_argument('--save_video', dest='save_video',help='whether to save rend
 parser.add_argument('--fight', dest='fight', default=False, action='store_true')
 parser.add_argument('--gta', dest='gta', default=False, action='store_true')
 parser.add_argument('--park', dest='park', default=False, action='store_true')
+parser.add_argument('--light', dest='light', default=False, action='store_true')
 
 
 parser.add_argument('--vis_fast', dest='vis_fast', help='use fast rendering', action='store_true', default=True)

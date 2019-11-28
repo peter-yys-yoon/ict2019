@@ -168,11 +168,11 @@ def get_bbox_list(txtpath):
         idx, x, y, w, h, c = int(idx), max(int(x),0), max(int(y),0), int(w), int(h), float(c)
 
         if cls == 'car':
-            # car_list_list[idx].append([x, y, x+w, y+h, c])
-            car_list_list[idx].append([x, y, w, h, c])
+            car_list_list[idx].append([x, y, x+w, y+h, c])
+            # car_list_list[idx].append([x, y, w, h, c])
         else:
-            hm_list_list[idx].append([x, y, w, h, c])
-            # hm_list_list[idx].append([x, y, x+w, y+h, c])
+            # hm_list_list[idx].append([x, y, w, h, c])
+            hm_list_list[idx].append([x, y, x+w, y+h, c])
 
     return car_list_list, hm_list_list
 
@@ -280,8 +280,13 @@ def bbox_invalid(bbox):
 def enlarge_bbox(bbox, scale):
     assert (scale > 0)
     min_x, min_y, max_x, max_y = bbox
-    margin_x = int(0.5 * scale * (max_x - min_x))
-    margin_y = int(0.5 * scale * (max_y - min_y))
+    try:
+        margin_x = int(0.5 * scale * (max_x - min_x))
+        margin_y = int(0.5 * scale * (max_y - min_y))
+    except ValueError:
+        print(bbox, scale)
+        quit()
+        
     if margin_x < 0: margin_x = 2
     if margin_y < 0: margin_y = 2
 

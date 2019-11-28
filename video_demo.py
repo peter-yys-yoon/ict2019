@@ -17,7 +17,7 @@ import cv2
 from tqdm import tqdm
 
 from SPPE.src.main_fast_inference import *
-from dataloader import VideoLoader, DetectionLoader, DetectionProcessor, Mscoco, DataWriter
+from dataloader import VideoLoader, DetectionLoader, DetectionProcessor, Mscoco, DataWriter, DetectionLoaderLight
 from fn import getTime
 
 from pPose_nms import write_json
@@ -52,18 +52,25 @@ if __name__ == "__main__":
         videofile ='/home/peter/dataset/gist/org/mid2018/nexpa_vehicle_accident.mp4'
     elif videofile == '6': #PARKING
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_park_kdh_s2_student1.mp4'
+        txtfile = '/home/peter/extra/dataset/gist/demo2019/trim/trim_park_kdh_s2_student1.txt'
     elif videofile == '7': # FIGHT1 
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_fight_jh_s1_student4.mp4'
+        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_fight_jh_s1_student4.txt'
+        
     elif videofile == '8': # FIGHT2 
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_fight_jh_s2_student4.mp4'
+        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_fight_jh_s2_student4.txt'
     elif videofile == '9': # GTA1
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_dh_s1_ohryong1.mp4'
+        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_dh_s1_ohryong1.txt'
     elif videofile == '10': # GTA2
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_dy_s1_student1.mp4'
+        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_dy_s1_student1.txt'
     elif videofile == '11': # GTA3
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s1_ohryong1.mp4'
     elif videofile == '12': # GTA4
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s2_student1.mp4'
+        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s2_student1.txt'
         
     print('Processing ' , videofile)
         
@@ -75,7 +82,12 @@ if __name__ == "__main__":
     # Load detection loader
     print('Loading YOLO model..')
     sys.stdout.flush()
-    det_loader = DetectionLoader(data_loader, batchSize=args.detbatch).start()
+    
+    if opt.light:
+        det_loader = DetectionLoaderLight(txtfile, data_loader, batchSize=args.detbatch).start() # TODO
+    else:
+        det_loader = DetectionLoader(data_loader, batchSize=args.detbatch).start()
+    
     det_processor = DetectionProcessor(det_loader).start()
 
     # Load pose model
@@ -101,13 +113,17 @@ if __name__ == "__main__":
 
     im_names_desc = tqdm(range(data_loader.length()))
     batchSize = args.posebatch
-    for i in im_names_desc:
+    for i in range(data_loader.length()):
+        if opt.profile:
+            im_names_desc.update(1)
+            
         start_time = getTime()
         with torch.no_grad():
             (inps, orig_img, im_name, boxes, scores, pt1, pt2, CAR) = det_processor.read()
             if orig_img is None:
                 break
-            if boxes is None or boxes.nelement() == 0:
+            # if boxes is None or boxes.nelement() == 0:
+            if boxes is None:
                 writer.save(None, None, None, None, None, orig_img, im_name, CAR)
                 continue
 
@@ -135,12 +151,12 @@ if __name__ == "__main__":
             ckpt_time, post_time = getTime(ckpt_time)
             runtime_profile['pn'].append(post_time)
 
-        if args.profile:
-            im_names_desc.set_description(
-                'det time: {dt:.3f} | pose time: {pt:.2f} | post processing: {pn:.4f}'.format(
-                    dt=np.mean(runtime_profile['dt']), pt=np.mean(runtime_profile['pt']),
-                    pn=np.mean(runtime_profile['pn']))
-            )
+        # if args.profile:
+        #     im_names_desc.set_description(
+        #         'det time: {dt:.3f} | pose time: {pt:.2f} | post processing: {pn:.4f}'.format(
+        #             dt=np.mean(runtime_profile['dt']), pt=np.mean(runtime_profile['pt']),
+        #             pn=np.mean(runtime_profile['pn']))
+        #     )
 
     print('===========================> Finish Model Running.')
     if (args.save_img or args.save_video) and not args.vis_fast:

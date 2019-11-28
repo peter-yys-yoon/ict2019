@@ -38,9 +38,13 @@ def pose_nms(bboxes, bbox_scores, pose_preds, pose_scores):
     final_result = []
 
     # print(bboxes, bbox_scores, pose_preds, pose_scores)
-    ori_bbox_scores = bbox_scores.clone()
-    ori_pose_preds = pose_preds.clone()
+    
+    if opt.light:
+        ori_bbox_scores = bbox_scores.copy()
+    else:    
+        ori_bbox_scores = bbox_scores.clone()
     ori_pose_scores = pose_scores.clone()
+    ori_pose_preds = pose_preds.clone()
 
     # ori_bbox_scores = bbox_scores.copy()
     # ori_pose_preds = pose_preds.copy()

@@ -124,6 +124,99 @@ class VideoLoader:
         return self.Q.qsize()
 
 
+
+class DetectionLoaderLight:
+    def __init__(self, txtfile, dataloder, batchSize=1, queueSize=1024):
+        # initialize the file video stream along with the boolean
+        # used to indicate if the thread should be stopped or not
+        
+        self.txtfile = txtfile
+        self.stopped = False
+        self.dataloder = dataloder
+        self.batchSize = batchSize
+        self.datalen = self.dataloder.length()
+        leftover = 0
+        if (self.datalen) % batchSize:
+            leftover = 1
+        self.num_batches = self.datalen // batchSize + leftover
+        # initialize the queue used to store frames read from
+        # the video file
+        if opt.sp:
+            self.Q = Queue(maxsize=queueSize)
+        else:
+            self.Q = mp.Queue(maxsize=queueSize)
+
+    def start(self):
+        # start a thread to read frames from the file video stream
+        if opt.sp:
+            t = Thread(target=self.update, args=())
+            t.daemon = True
+            t.start()
+        else:
+            p = mp.Process(target=self.update, args=())
+            p.daemon = True
+            p.start()
+        return self
+
+    def update(self):
+        # keep looping the whole dataset
+        """
+
+        :return:
+        """
+        
+        car_list_list, hm_list_list = get_bbox_list(self.txtfile)
+        for i in range(self.num_batches):  # repeat
+
+            img, orig_img, im_name, im_dim_list = self.dataloder.getitem()
+
+            # img = (batch, frames)
+            if img is None:
+                self.Q.put((None, None, None, None, None, None, None))
+                return
+            start_time = getTime()
+            
+            for k in range(len(orig_img)):  # for k-th image detection.
+
+                im_name_k = im_name[k]
+                car_list = car_list_list[im_name_k]
+                hm_list = hm_list_list[im_name_k]
+
+                if len(car_list) == 0:  # empty car
+                    car_list_np = None
+                else:
+                    car_list_np = np.array(car_list)
+
+                if len(hm_list):  # human not empty
+
+                    hm_list_np = np.array(hm_list)
+                    hm_boxes_k = hm_list_np[:, 0:4]
+
+                    hm_scores_k = hm_list_np[:, 4]
+
+                    size = hm_boxes_k.shape[0]
+                    inps = torch.zeros(size, 3, opt.inputResH, opt.inputResW)
+                    pt1 = torch.zeros(size, 2)
+                    pt2 = torch.zeros(size, 2)
+                    item = (orig_img[k], im_name[k], hm_boxes_k, hm_scores_k, inps, pt1, pt2, car_list_np)
+                else:
+                    item = (orig_img[k], im_name[k], None, None, None, None, None, car_list_np)  # 8-elemetns
+
+
+                if self.Q.full():
+                    time.sleep(0.3)
+                self.Q.put(item)
+
+
+    def read(self):
+        # return next frame in the queue
+        return self.Q.get()
+
+    def len(self):
+        # return queue len
+        return self.Q.qsize()
+
+
 class DetectionLoader:
     def __init__(self, dataloder, batchSize=1, queueSize=1024):
         # initialize the file video stream along with the boolean
@@ -250,6 +343,8 @@ class DetectionLoader:
                     pt2 = torch.zeros(hm_boxes_k.size(0), 2)
                     item = (orig_img[k], im_name[k], hm_boxes_k, hm_scores_k, inps, pt1, pt2, car_k)
                     # print('video processor ', 'image' , im_name[k] , 'hm box ' , hm_boxes_k.size())
+                    
+                
                 else:
                     item = (orig_img[k], im_name[k], None, None, None, None, None, car_k)  # 8-elemetns
 
@@ -306,7 +401,8 @@ class DetectionProcessor:
                     self.Q.put((None, None, None, None, None, None, None, None))
                     return
 
-                if boxes is None or boxes.nelement() == 0:
+                # if boxes is None or boxes.nelement() == 0:
+                if boxes is None :
 
                     while self.Q.full():
                         time.sleep(0.2)
@@ -315,6 +411,7 @@ class DetectionProcessor:
 
                 inp = im_to_torch(cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB))
                 inps, pt1, pt2 = crop_from_dets(inp, boxes, inps, pt1, pt2)
+                # print('detection processor', pt1, pt2)
 
                 while self.Q.full():
                     time.sleep(0.2)
@@ -375,9 +472,13 @@ class DataWriter:
                 (boxes, scores, hm_data, pt1, pt2, orig_img, img_id, car_np) = self.Q.get()
                 orig_img = np.array(orig_img, dtype=np.uint8)
                 img = orig_img
+                
+
 
                 """ PERSON """
                 person_list = self.person.person_tracking(boxes, scores, hm_data, pt1, pt2, img_id)
+                
+                
                 self.person.person_tracjectory(person_list)
                 vis_frame(img, person_list)
 

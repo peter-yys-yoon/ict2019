@@ -121,6 +121,12 @@ class IO():
         parser.add_argument('--outdir', dest='outputpath', help='output-directory', default="examples/res/")
         parser.add_argument('--save_video', dest='save_video', help='whether to save rendered video', default=False,
                             action='store_true')
+        
+        parser.add_argument('--fight', dest='fight', default=False, action='store_true')
+        parser.add_argument('--gta', dest='gta', default=False, action='store_true')
+        parser.add_argument('--park', dest='park', default=False, action='store_true')
+        parser.add_argument('--light', dest='light', default=False, action='store_true')
+        parser.add_argument('--matching', default=False, action='store_true', help='use best matching')
 
         parser.add_argument('--sp', default=False, action='store_true', help='Use single process for pytorch')
         parser.add_argument('--vis', default=False, action='store_true', help='visualize image')
