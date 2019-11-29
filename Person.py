@@ -10,6 +10,7 @@ class PersonClass:
         self.person_next_id = 0
         self.person_trajectory_dict = {}
         self.person_list_list = []
+        self.final_result = []
     
     def person_tracking(self, boxes, scores, hm_data, pt1, pt2, img_id):
 
@@ -32,6 +33,11 @@ class PersonClass:
             result = pose_nms(boxes, scores, preds_img, preds_scores)  # list type
             # result = {  'keypoints': ,  'kp_score': , 'proposal_score': ,  'bbox' }
 
+
+        to_final_result = {'imgname': img_id, 'result': result, 'boxes':boxes }
+
+        self.final_result.append(to_final_result)
+        
         if img_id > 0:  # First frame does not have previous frame
             person_list_prev_frame = self.person_list_list[img_id - 1].copy()
         else:

@@ -80,12 +80,11 @@ if __name__ == "__main__":
     (fourcc, fps, frameSize) = data_loader.videoinfo()
 
     # Load detection loader
-    print('Loading YOLO model..')
-    sys.stdout.flush()
-    
     if opt.light:
         det_loader = DetectionLoaderLight(txtfile, data_loader, batchSize=args.detbatch).start() # TODO
     else:
+        print('Loading YOLO model..')
+        sys.stdout.flush()
         det_loader = DetectionLoader(data_loader, batchSize=args.detbatch).start()
     
     det_processor = DetectionProcessor(det_loader).start()

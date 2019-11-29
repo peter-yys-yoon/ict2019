@@ -438,7 +438,6 @@ class DataWriter:
             assert self.stream.isOpened(), 'Cannot open video for writing'
         self.save_video = save_video
         self.stopped = False
-        self.final_result = []
         
         self.vehicle = VehicleClass()
         self.person = PersonClass()
@@ -559,7 +558,7 @@ class DataWriter:
 
     def results(self):
         # return final result
-        return self.final_result
+        return self.person.final_result
 
     def len(self):
         # return queue len

@@ -306,24 +306,28 @@ def write_json(videofile, all_results, outputpath, for_eval=False):
     json_results_cmu = {}
     for im_res in all_results:
         im_name = im_res['imgname']
-        for human in im_res['result']:
+        boxes = im_res['boxes']
+        for idx , human in enumerate(im_res['result']):
             keypoints = []
             result = {}
             if for_eval:
                 result['image_id'] = int(im_name.split('/')[-1].split('.')[0].split('_')[-1])
             else:
-                result['image_id'] = im_name.split('/')[-1]
+                # result['image_id'] = im_name.split('/')[-1]
+                result['image_id'] = im_name
             result['category_id'] = 1
 
             kp_preds = human['keypoints']
             kp_scores = human['kp_score']
             pro_scores = human['proposal_score']
+            bbox = list(boxes[idx])
             for n in range(kp_scores.shape[0]):
                 keypoints.append(float(kp_preds[n, 0]))
                 keypoints.append(float(kp_preds[n, 1]))
                 keypoints.append(float(kp_scores[n]))
             result['keypoints'] = keypoints
             result['score'] = float(pro_scores)
+            result['bbox'] = bbox
 
             if form == 'cmu':  # the form of CMU-Pose
                 if result['image_id'] not in json_results_cmu.keys():
