@@ -185,7 +185,7 @@ def vis_frame_tmp(frame, im_res, format='coco'):
         bbox = human['bbox']
         kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5, :] + kp_preds[6, :]) / 2, 0)))
         kp_scores = torch.cat((kp_scores, torch.unsqueeze((kp_scores[5, :] + kp_scores[6, :]) / 2, 0)))
-        print(kp_preds.size(), kp_scores.size())
+        #print(kp_preds.size(), kp_scores.size())
         # Draw keypoints
         for n in range(kp_scores.shape[0]):
             if kp_scores[n] <= 0.05:
