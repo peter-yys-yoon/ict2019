@@ -130,7 +130,7 @@ parser.add_argument('--posebatch', type=int, default=1, help='pose estimation ma
 parser.add_argument('--video', dest='video',help='video-name', default="/home/peter/dataset/gist/org/mid2019/roaming_kdh_trial_1/trim_student1.avi")
 parser.add_argument('--webcam', dest='webcam', type=str,
                     help='webcam number', default='0')
-parser.add_argument('--save_video', dest='save_video',help='whether to save rendered video', default=True, action='store_true')
+parser.add_argument('--save_video', dest='save_video',help='whether to save rendered video', default=False, action='store_true')
 
 parser.add_argument('--fight', dest='fight', default=False, action='store_true')
 parser.add_argument('--gta', dest='gta', default=False, action='store_true')

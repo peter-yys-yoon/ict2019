@@ -428,8 +428,8 @@ class DetectionProcessor:
 
 class DataWriter:
     def __init__(self, save_video=False,
-                 savepath='examples/res/1.avi', fourcc=cv2.VideoWriter_fourcc(*'XVID'), fps=25, frameSize=(640, 480),
-                 queueSize=1024):
+                savepath='examples/res/1.avi', fourcc=cv2.VideoWriter_fourcc(*'XVID'), fps=25, frameSize=(640, 480),
+                queueSize=1024):
         if save_video:
             # initialize the file video stream along with the boolean
             # used to indicate if the thread should be stopped or not
@@ -437,6 +437,7 @@ class DataWriter:
             self.stream = cv2.VideoWriter(savepath, fourcc, 20, frameSize)
             assert self.stream.isOpened(), 'Cannot open video for writing'
         self.save_video = save_video
+        print('self video ' , self.save_video)
         self.stopped = False
         
         self.vehicle = VehicleClass()
@@ -462,6 +463,7 @@ class DataWriter:
             # thread
             if self.stopped:
                 if self.save_video:
+                    print('released video stream')
                     self.stream.release()
                 return
             # otherwise, ensure the queue is not empty
@@ -471,6 +473,7 @@ class DataWriter:
                 (boxes, scores, hm_data, pt1, pt2, orig_img, img_id, car_np) = self.Q.get()
                 orig_img = np.array(orig_img, dtype=np.uint8)
                 img = orig_img
+                # print('processing ' , img_id)
                 
 
 
@@ -482,10 +485,11 @@ class DataWriter:
                 vis_frame(img, person_list)
 
                 """ Car """
-                car_dest_list = self.vehicle.car_tracking(car_np, img_id)
-                self.vehicle.car_trajectory(car_dest_list)
                 
-                if opt.gta:
+                
+                if opt.park:
+                    car_dest_list = self.vehicle.car_tracking(car_np, img_id)
+                    self.vehicle.car_trajectory(car_dest_list)
                     self.vehicle.parking_detection(car_dest_list, img, img_id)
                     
                 elif opt.fight:
@@ -506,6 +510,7 @@ class DataWriter:
                     self.stream.write(img)
             else:
                 time.sleep(0.1)
+        
 
     def car_person_detection(self, car_dets_list, hm_dets_list, img):
 

@@ -69,8 +69,8 @@ if __name__ == "__main__":
     elif videofile == '11': # GTA3
         videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s1_ohryong1.mp4'
     elif videofile == '12': # GTA4
-        videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s2_student1.mp4'
-        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s2_student1.txt'
+        videofile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s3_student1.mp4'
+        txtfile ='/home/peter/extra/dataset/gist/demo2019/trim/trim_gta_jh_s3_student1.txt'
         
     print('Processing ' , videofile)
         
@@ -167,4 +167,6 @@ if __name__ == "__main__":
     writer.stop()
     writer.write_enery()
     final_result = writer.results()
+    # writer.join()
+    # time.sleep(3)
     write_json(videofile, final_result, args.outputpath)
